@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Be Sissy</string>
+    <string name="accessibility_service_description">Monitors foreground app launches during active Be Sissy focus sessions, scheduled blocks, and daily limits to display your customized Wall Block screen and prevent accidental tampering.</string>
+    <string name="device_admin_description">Prevents uninstalling or clearing data for Be Sissy while a restriction session is active.</string>
+</resources>

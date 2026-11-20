@@ -1,0 +1,6 @@
+{
+  "name": "Be Sissy",
+  "description": "Customizable pink-themed screen time manager, app blocker, schedule planner, and AI focus assistant.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

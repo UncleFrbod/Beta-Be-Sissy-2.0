@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="blush_surface">#FFE3EE</color>
+    <color name="pink_primary">#FF5C9A</color>
+    <color name="pink_container">#FFCCE0</color>
+    <color name="pink_accent">#FF96FC</color>
+    <color name="berry_ink">#B8255D</color>
+</resources>

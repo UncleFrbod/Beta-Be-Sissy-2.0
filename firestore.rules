@@ -1,0 +1,394 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_.\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidTimestamp(ts) {
+      return ts is timestamp && ts <= request.time;
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.userId == userId &&
+        data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100 &&
+        data.keysBalance is int && data.keysBalance >= 0 && data.keysBalance <= 100000 &&
+        data.plapsBalance is int && data.plapsBalance >= 0 && data.plapsBalance <= 100000 &&
+        data.dailyStreak is int && data.dailyStreak >= 0 && data.dailyStreak <= 10000 &&
+        data.squatCountTarget is int && data.squatCountTarget >= 20 && data.squatCountTarget <= 1000 &&
+        data.lastBurnMonth is string && data.lastBurnMonth.size() <= 16 &&
+        (!('lastSessionDate' in data) || (data.lastSessionDate is string && data.lastSessionDate.size() <= 32)) &&
+        (!('selectedFontKey' in data) || (data.selectedFontKey is string && data.selectedFontKey.size() <= 64)) &&
+        (!('customFontUri' in data) || (data.customFontUri is string && data.customFontUri.size() <= 500)) &&
+        (!('selectedFontColorHex' in data) || (data.selectedFontColorHex is string && data.selectedFontColorHex.size() <= 16)) &&
+        (!('wallpaperKey' in data) || (data.wallpaperKey is string && data.wallpaperKey.size() <= 64)) &&
+        (!('customWallpaperUri' in data) || (data.customWallpaperUri is string && data.customWallpaperUri.size() <= 500)) &&
+        (!('aodMediaUri' in data) || (data.aodMediaUri is string && data.aodMediaUri.size() <= 500)) &&
+        (!('aodMediaType' in data) || data.aodMediaType in ['NONE', 'PHOTO', 'GIF', 'VIDEO']) &&
+        (!('aodFontKey' in data) || (data.aodFontKey is string && data.aodFontKey.size() <= 64)) &&
+        (!('aodFontColorHex' in data) || (data.aodFontColorHex is string && data.aodFontColorHex.size() <= 16)) &&
+        (!('aodDimPercent' in data) || (data.aodDimPercent is int && data.aodDimPercent >= 10 && data.aodDimPercent <= 95)) &&
+        (!('wallBlockReason' in data) || (data.wallBlockReason is string && data.wallBlockReason.size() <= 300)) &&
+        (!('wallBlockMediaUri' in data) || (data.wallBlockMediaUri is string && data.wallBlockMediaUri.size() <= 500)) &&
+        (!('wallBlockMediaType' in data) || data.wallBlockMediaType in ['ICON', 'PHOTO', 'GIF', 'VIDEO']) &&
+        (!('wallBlockFontKey' in data) || (data.wallBlockFontKey is string && data.wallBlockFontKey.size() <= 64)) &&
+        (!('wallBlockFontColorHex' in data) || (data.wallBlockFontColorHex is string && data.wallBlockFontColorHex.size() <= 16)) &&
+        (!('wallBlockBgHex' in data) || (data.wallBlockBgHex is string && data.wallBlockBgHex.size() <= 16)) &&
+        (!('visualProofDescription' in data) || (data.visualProofDescription is string && data.visualProofDescription.size() <= 400)) &&
+        (!('visualProofSampleUri' in data) || (data.visualProofSampleUri is string && data.visualProofSampleUri.size() <= 500)) &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidAppRule(data, userId) {
+      return data.userId == userId &&
+        data.packageName is string && data.packageName.size() >= 1 && data.packageName.size() <= 200 &&
+        data.appName is string && data.appName.size() >= 1 && data.appName.size() <= 100 &&
+        (!('category' in data) || (data.category is string && data.category.size() <= 60)) &&
+        data.necessaryApp is bool &&
+        data.restrictedInSession is bool &&
+        data.scheduleEnabled is bool &&
+        (!('scheduleStartMinutes' in data) || (data.scheduleStartMinutes is int && data.scheduleStartMinutes >= 0 && data.scheduleStartMinutes <= 1439)) &&
+        (!('scheduleEndMinutes' in data) || (data.scheduleEndMinutes is int && data.scheduleEndMinutes >= 0 && data.scheduleEndMinutes <= 1439)) &&
+        data.dailyLimitEnabled is bool &&
+        (!('dailyLimitMinutes' in data) || (data.dailyLimitMinutes is int && data.dailyLimitMinutes >= 1 && data.dailyLimitMinutes <= 1440)) &&
+        (!('usedTodayMinutes' in data) || (data.usedTodayMinutes is int && data.usedTodayMinutes >= 0 && data.usedTodayMinutes <= 1440)) &&
+        (!('tempUnblockUntilMillis' in data) || (data.tempUnblockUntilMillis is int && data.tempUnblockUntilMillis >= 0)) &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidSession(data, userId) {
+      return data.userId == userId &&
+        data.mode in ['SESSION', 'SCHEDULE', 'DAILY_LIMIT'] &&
+        data.durationMinutes is int && data.durationMinutes >= 1 && data.durationMinutes <= 1440 &&
+        data.startedAtMillis is int && data.startedAtMillis >= 0 &&
+        data.endsAtMillis is int && data.endsAtMillis >= 0 &&
+        (!('pausedUntilMillis' in data) || (data.pausedUntilMillis is int && data.pausedUntilMillis >= 0)) &&
+        data.status in ['ACTIVE', 'PAUSED', 'COMPLETED', 'ENDED_EARLY'] &&
+        (!('earlyExitMethod' in data) || (data.earlyExitMethod is string && data.earlyExitMethod.size() <= 100)) &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidUsageLog(data, userId) {
+      return data.userId == userId &&
+        data.packageName is string && data.packageName.size() >= 1 && data.packageName.size() <= 200 &&
+        data.appName is string && data.appName.size() >= 1 && data.appName.size() <= 100 &&
+        data.dateKey is string && data.dateKey.size() >= 1 && data.dateKey.size() <= 20 &&
+        data.dayOfWeek is int && data.dayOfWeek >= 1 && data.dayOfWeek <= 7 &&
+        data.hourOfDay is int && data.hourOfDay >= 0 && data.hourOfDay <= 23 &&
+        data.screenTimeMinutes is int && data.screenTimeMinutes >= 0 && data.screenTimeMinutes <= 1440 &&
+        data.restrictedMinutes is int && data.restrictedMinutes >= 0 && data.restrictedMinutes <= 1440 &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidCustomTask(data, userId) {
+      return data.userId == userId &&
+        data.taskType in ['READ_LINE', 'TYPING_PROMPT'] &&
+        data.content is string && data.content.size() >= 1 && data.content.size() <= 2000 &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidAiSuggestion(data, userId) {
+      return data.userId == userId &&
+        data.appName is string && data.appName.size() >= 1 && data.appName.size() <= 100 &&
+        data.packageName is string && data.packageName.size() >= 1 && data.packageName.size() <= 200 &&
+        data.suggestedStartMinutes is int && data.suggestedStartMinutes >= 0 && data.suggestedStartMinutes <= 1439 &&
+        data.suggestedEndMinutes is int && data.suggestedEndMinutes >= 0 && data.suggestedEndMinutes <= 1439 &&
+        data.suggestedDailyLimitMinutes is int && data.suggestedDailyLimitMinutes >= 5 && data.suggestedDailyLimitMinutes <= 1440 &&
+        data.reason is string && data.reason.size() >= 1 && data.reason.size() <= 500 &&
+        data.status in ['PENDING', 'APPLIED', 'DISMISSED'] &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidSchedulePlan(data, userId) {
+      return data.userId == userId &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 500)) &&
+        data.enabled is bool &&
+        data.startMinutes is int && data.startMinutes >= 0 && data.startMinutes <= 1439 &&
+        data.endMinutes is int && data.endMinutes >= 0 && data.endMinutes <= 1439 &&
+        data.daysOfWeek is list && data.daysOfWeek.size() <= 7 &&
+        data.modeType in ['BLOCK_SELECTED', 'ALLOW_ONLY_SELECTED'] &&
+        data.allowedPackages is list && data.allowedPackages.size() <= 150 &&
+        data.restrictedPackages is list && data.restrictedPackages.size() <= 150 &&
+        (!('customBlockReason' in data) || (data.customBlockReason is string && data.customBlockReason.size() <= 300)) &&
+        (!('unlockedUntilMillis' in data) || (data.unlockedUntilMillis is int && data.unlockedUntilMillis >= 0)) &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidChallengeEntry(data, userId) {
+      return data.userId == userId &&
+        data.weekKey is string && data.weekKey.size() >= 4 && data.weekKey.size() <= 16 &&
+        data.challengeId is string && data.challengeId.size() >= 1 && data.challengeId.size() <= 64 &&
+        data.challengeTitle is string && data.challengeTitle.size() >= 1 && data.challengeTitle.size() <= 100 &&
+        data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100 &&
+        data.tasksCompleted is int && data.tasksCompleted >= 0 && data.tasksCompleted <= 10000 &&
+        data.restrictedMinutes is int && data.restrictedMinutes >= 0 && data.restrictedMinutes <= 50000 &&
+        data.dailyStreak is int && data.dailyStreak >= 0 && data.dailyStreak <= 10000 &&
+        data.totalScore is int && data.totalScore >= 0 && data.totalScore <= 1000000 &&
+        data.badgeTitle is string && data.badgeTitle.size() >= 1 && data.badgeTitle.size() <= 60 &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false;
+
+      allow create: if isOwner(userId) &&
+        isValidId(userId) &&
+        incoming().keys().hasAll(['userId', 'displayName', 'keysBalance', 'plapsBalance', 'dailyStreak', 'squatCountTarget', 'lastBurnMonth', 'createdAt', 'updatedAt']) &&
+        incoming().keys().hasOnly([
+          'userId', 'displayName', 'keysBalance', 'plapsBalance', 'dailyStreak',
+          'lastSessionDate', 'lastBurnMonth', 'squatCountTarget',
+          'selectedFontKey', 'customFontUri', 'selectedFontColorHex',
+          'wallpaperKey', 'customWallpaperUri',
+          'aodMediaUri', 'aodMediaType', 'aodFontKey', 'aodFontColorHex', 'aodDimPercent',
+          'wallBlockReason', 'wallBlockMediaUri', 'wallBlockMediaType', 'wallBlockFontKey', 'wallBlockFontColorHex', 'wallBlockBgHex',
+          'visualProofDescription', 'visualProofSampleUri',
+          'createdAt', 'updatedAt'
+        ]) &&
+        isValidUserProfile(incoming(), userId);
+
+      allow update: if isOwner(userId) &&
+        isValidId(userId) &&
+        isValidUserProfile(incoming(), userId) &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName', 'keysBalance', 'plapsBalance', 'dailyStreak',
+          'lastSessionDate', 'lastBurnMonth', 'squatCountTarget',
+          'selectedFontKey', 'customFontUri', 'selectedFontColorHex',
+          'wallpaperKey', 'customWallpaperUri',
+          'aodMediaUri', 'aodMediaType', 'aodFontKey', 'aodFontColorHex', 'aodDimPercent',
+          'wallBlockReason', 'wallBlockMediaUri', 'wallBlockMediaType', 'wallBlockFontKey', 'wallBlockFontColorHex', 'wallBlockBgHex',
+          'visualProofDescription', 'visualProofSampleUri',
+          'updatedAt'
+        ]);
+
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      match /app_rules/{ruleId} {
+        allow get: if isOwner(userId) && isValidId(ruleId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+          isValidId(ruleId) &&
+          incoming().keys().hasAll(['userId', 'packageName', 'appName', 'necessaryApp', 'restrictedInSession', 'scheduleEnabled', 'dailyLimitEnabled', 'createdAt', 'updatedAt']) &&
+          incoming().keys().hasOnly([
+            'userId', 'packageName', 'appName', 'category', 'necessaryApp',
+            'restrictedInSession', 'scheduleEnabled', 'scheduleStartMinutes', 'scheduleEndMinutes',
+            'dailyLimitEnabled', 'dailyLimitMinutes', 'usedTodayMinutes', 'tempUnblockUntilMillis',
+            'createdAt', 'updatedAt'
+          ]) &&
+          isValidAppRule(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+          isValidId(ruleId) &&
+          isValidAppRule(incoming(), userId) &&
+          incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'appName', 'category', 'necessaryApp', 'restrictedInSession',
+            'scheduleEnabled', 'scheduleStartMinutes', 'scheduleEndMinutes',
+            'dailyLimitEnabled', 'dailyLimitMinutes', 'usedTodayMinutes',
+            'tempUnblockUntilMillis', 'updatedAt'
+          ]);
+
+        allow delete: if isOwner(userId) && isValidId(ruleId);
+      }
+
+      match /sessions/{sessionId} {
+        allow get: if isOwner(userId) && isValidId(sessionId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+          isValidId(sessionId) &&
+          incoming().keys().hasAll(['userId', 'mode', 'durationMinutes', 'startedAtMillis', 'endsAtMillis', 'status', 'createdAt', 'updatedAt']) &&
+          incoming().keys().hasOnly([
+            'userId', 'mode', 'durationMinutes', 'startedAtMillis', 'endsAtMillis',
+            'pausedUntilMillis', 'status', 'earlyExitMethod', 'createdAt', 'updatedAt'
+          ]) &&
+          incoming().status == 'ACTIVE' &&
+          isValidSession(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+          isValidId(sessionId) &&
+          isValidSession(incoming(), userId) &&
+          incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt &&
+          existing().status in ['ACTIVE', 'PAUSED'] &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'endsAtMillis', 'pausedUntilMillis', 'status', 'earlyExitMethod', 'updatedAt'
+          ]);
+
+        allow delete: if isOwner(userId) && isValidId(sessionId);
+      }
+
+      match /usage_logs/{logId} {
+        allow get: if isOwner(userId) && isValidId(logId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+          isValidId(logId) &&
+          incoming().keys().hasAll(['userId', 'packageName', 'appName', 'dateKey', 'dayOfWeek', 'hourOfDay', 'screenTimeMinutes', 'restrictedMinutes', 'createdAt', 'updatedAt']) &&
+          incoming().keys().hasOnly([
+            'userId', 'packageName', 'appName', 'dateKey', 'dayOfWeek', 'hourOfDay',
+            'screenTimeMinutes', 'restrictedMinutes', 'createdAt', 'updatedAt'
+          ]) &&
+          isValidUsageLog(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+          isValidId(logId) &&
+          isValidUsageLog(incoming(), userId) &&
+          incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'screenTimeMinutes', 'restrictedMinutes', 'updatedAt'
+          ]);
+
+        allow delete: if isOwner(userId) && isValidId(logId);
+      }
+
+      match /custom_tasks/{taskId} {
+        allow get: if isOwner(userId) && isValidId(taskId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+          isValidId(taskId) &&
+          incoming().keys().hasAll(['userId', 'taskType', 'content', 'createdAt', 'updatedAt']) &&
+          incoming().keys().hasOnly(['userId', 'taskType', 'content', 'createdAt', 'updatedAt']) &&
+          isValidCustomTask(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+          isValidId(taskId) &&
+          isValidCustomTask(incoming(), userId) &&
+          incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['taskType', 'content', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(taskId);
+      }
+
+      match /ai_suggestions/{suggestionId} {
+        allow get: if isOwner(userId) && isValidId(suggestionId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+          isValidId(suggestionId) &&
+          incoming().keys().hasAll(['userId', 'appName', 'packageName', 'suggestedStartMinutes', 'suggestedEndMinutes', 'suggestedDailyLimitMinutes', 'reason', 'status', 'createdAt', 'updatedAt']) &&
+          incoming().keys().hasOnly([
+            'userId', 'appName', 'packageName', 'suggestedStartMinutes', 'suggestedEndMinutes',
+            'suggestedDailyLimitMinutes', 'reason', 'status', 'createdAt', 'updatedAt'
+          ]) &&
+          isValidAiSuggestion(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+          isValidId(suggestionId) &&
+          isValidAiSuggestion(incoming(), userId) &&
+          incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'suggestedStartMinutes', 'suggestedEndMinutes', 'suggestedDailyLimitMinutes', 'status', 'updatedAt'
+          ]);
+
+        allow delete: if isOwner(userId) && isValidId(suggestionId);
+      }
+
+      match /schedules/{scheduleId} {
+        allow get: if isOwner(userId) && isValidId(scheduleId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+          isValidId(scheduleId) &&
+          incoming().keys().hasAll([
+            'userId', 'name', 'enabled', 'startMinutes', 'endMinutes',
+            'daysOfWeek', 'modeType', 'allowedPackages', 'restrictedPackages',
+            'createdAt', 'updatedAt'
+          ]) &&
+          incoming().keys().hasOnly([
+            'userId', 'name', 'description', 'enabled', 'startMinutes', 'endMinutes',
+            'daysOfWeek', 'modeType', 'allowedPackages', 'restrictedPackages',
+            'customBlockReason', 'unlockedUntilMillis', 'createdAt', 'updatedAt'
+          ]) &&
+          isValidSchedulePlan(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+          isValidId(scheduleId) &&
+          isValidSchedulePlan(incoming(), userId) &&
+          incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'name', 'description', 'enabled', 'startMinutes', 'endMinutes',
+            'daysOfWeek', 'modeType', 'allowedPackages', 'restrictedPackages',
+            'customBlockReason', 'unlockedUntilMillis', 'updatedAt'
+          ]);
+
+        allow delete: if isOwner(userId) && isValidId(scheduleId);
+      }
+    }
+
+    match /challenge_leaderboard/{entryId} {
+      allow get, list: if isSignedIn();
+
+      allow create: if isSignedIn() &&
+        isValidId(entryId) &&
+        isOwner(incoming().userId) &&
+        entryId == incoming().weekKey + '_' + request.auth.uid &&
+        incoming().keys().hasAll([
+          'userId', 'weekKey', 'challengeId', 'challengeTitle', 'displayName',
+          'tasksCompleted', 'restrictedMinutes', 'dailyStreak', 'totalScore', 'badgeTitle',
+          'createdAt', 'updatedAt'
+        ]) &&
+        incoming().keys().hasOnly([
+          'userId', 'weekKey', 'challengeId', 'challengeTitle', 'displayName',
+          'tasksCompleted', 'restrictedMinutes', 'dailyStreak', 'totalScore', 'badgeTitle',
+          'createdAt', 'updatedAt'
+        ]) &&
+        isValidChallengeEntry(incoming(), request.auth.uid);
+
+      allow update: if isSignedIn() &&
+        isValidId(entryId) &&
+        isOwner(existing().userId) &&
+        isOwner(incoming().userId) &&
+        incoming().userId == existing().userId &&
+        incoming().weekKey == existing().weekKey &&
+        incoming().createdAt == existing().createdAt &&
+        isValidChallengeEntry(incoming(), request.auth.uid) &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'challengeId', 'challengeTitle', 'displayName',
+          'tasksCompleted', 'restrictedMinutes', 'dailyStreak',
+          'totalScore', 'badgeTitle', 'updatedAt'
+        ]);
+
+      allow delete: if isSignedIn() && isOwner(existing().userId);
+    }
+  }
+}

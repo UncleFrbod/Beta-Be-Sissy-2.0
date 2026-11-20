@@ -1,0 +1,210 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User currency balances, streak state, and personalization settings",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "keysBalance": { "type": "integer" },
+        "plapsBalance": { "type": "integer" },
+        "dailyStreak": { "type": "integer" },
+        "lastSessionDate": { "type": "string" },
+        "lastBurnMonth": { "type": "string" },
+        "squatCountTarget": { "type": "integer" },
+        "selectedFontKey": { "type": "string" },
+        "customFontUri": { "type": "string" },
+        "selectedFontColorHex": { "type": "string" },
+        "wallpaperKey": { "type": "string" },
+        "customWallpaperUri": { "type": "string" },
+        "aodMediaUri": { "type": "string" },
+        "aodMediaType": { "type": "string", "enum": ["NONE", "PHOTO", "GIF", "VIDEO"] },
+        "aodFontKey": { "type": "string" },
+        "aodFontColorHex": { "type": "string" },
+        "aodDimPercent": { "type": "integer" },
+        "wallBlockReason": { "type": "string" },
+        "wallBlockMediaUri": { "type": "string" },
+        "wallBlockMediaType": { "type": "string", "enum": ["ICON", "PHOTO", "GIF", "VIDEO"] },
+        "wallBlockFontKey": { "type": "string" },
+        "wallBlockFontColorHex": { "type": "string" },
+        "wallBlockBgHex": { "type": "string" },
+        "visualProofDescription": { "type": "string" },
+        "visualProofSampleUri": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "displayName", "keysBalance", "plapsBalance", "dailyStreak", "squatCountTarget", "lastBurnMonth", "createdAt", "updatedAt"]
+    },
+    "AppRule": {
+      "title": "AppRule",
+      "description": "Per-app restriction configuration across Session, Schedule, and Daily Limit modes",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "packageName": { "type": "string" },
+        "appName": { "type": "string" },
+        "category": { "type": "string" },
+        "necessaryApp": { "type": "boolean" },
+        "restrictedInSession": { "type": "boolean" },
+        "scheduleEnabled": { "type": "boolean" },
+        "scheduleStartMinutes": { "type": "integer" },
+        "scheduleEndMinutes": { "type": "integer" },
+        "dailyLimitEnabled": { "type": "boolean" },
+        "dailyLimitMinutes": { "type": "integer" },
+        "usedTodayMinutes": { "type": "integer" },
+        "tempUnblockUntilMillis": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "packageName", "appName", "necessaryApp", "restrictedInSession", "scheduleEnabled", "dailyLimitEnabled", "createdAt", "updatedAt"]
+    },
+    "RestrictionSession": {
+      "title": "RestrictionSession",
+      "description": "Timed restriction session record with active, paused, completed, or early-ended status",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "mode": { "type": "string", "enum": ["SESSION", "SCHEDULE", "DAILY_LIMIT"] },
+        "durationMinutes": { "type": "integer" },
+        "startedAtMillis": { "type": "integer" },
+        "endsAtMillis": { "type": "integer" },
+        "pausedUntilMillis": { "type": "integer" },
+        "status": { "type": "string", "enum": ["ACTIVE", "PAUSED", "COMPLETED", "ENDED_EARLY"] },
+        "earlyExitMethod": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "mode", "durationMinutes", "startedAtMillis", "endsAtMillis", "status", "createdAt", "updatedAt"]
+    },
+    "UsageLogEntry": {
+      "title": "UsageLogEntry",
+      "description": "Screen time and restricted time log entry for daily, weekly, and monthly analytics",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "packageName": { "type": "string" },
+        "appName": { "type": "string" },
+        "dateKey": { "type": "string" },
+        "dayOfWeek": { "type": "integer" },
+        "hourOfDay": { "type": "integer" },
+        "screenTimeMinutes": { "type": "integer" },
+        "restrictedMinutes": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "packageName", "appName", "dateKey", "dayOfWeek", "hourOfDay", "screenTimeMinutes", "restrictedMinutes", "createdAt", "updatedAt"]
+    },
+    "CustomExitTask": {
+      "title": "CustomExitTask",
+      "description": "Customizable reading lines and exact typing prompts for early session completion",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "taskType": { "type": "string", "enum": ["READ_LINE", "TYPING_PROMPT"] },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "taskType", "content", "createdAt", "updatedAt"]
+    },
+    "AiScheduleSuggestion": {
+      "title": "AiScheduleSuggestion",
+      "description": "AI-analyzed editable schedule and daily limit recommendation",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "appName": { "type": "string" },
+        "packageName": { "type": "string" },
+        "suggestedStartMinutes": { "type": "integer" },
+        "suggestedEndMinutes": { "type": "integer" },
+        "suggestedDailyLimitMinutes": { "type": "integer" },
+        "reason": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "APPLIED", "DISMISSED"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "appName", "packageName", "suggestedStartMinutes", "suggestedEndMinutes", "suggestedDailyLimitMinutes", "reason", "status", "createdAt", "updatedAt"]
+    },
+    "SchedulePlan": {
+      "title": "SchedulePlan",
+      "description": "Customizable detailed schedule plan with per-schedule allowed and restricted apps",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "enabled": { "type": "boolean" },
+        "startMinutes": { "type": "integer" },
+        "endMinutes": { "type": "integer" },
+        "daysOfWeek": { "type": "array", "items": { "type": "integer" } },
+        "modeType": { "type": "string", "enum": ["BLOCK_SELECTED", "ALLOW_ONLY_SELECTED"] },
+        "allowedPackages": { "type": "array", "items": { "type": "string" } },
+        "restrictedPackages": { "type": "array", "items": { "type": "string" } },
+        "customBlockReason": { "type": "string" },
+        "unlockedUntilMillis": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "enabled", "startMinutes", "endMinutes", "daysOfWeek", "modeType", "allowedPackages", "restrictedPackages", "createdAt", "updatedAt"]
+    },
+    "ChallengeLeaderboardEntry": {
+      "title": "ChallengeLeaderboardEntry",
+      "description": "Global weekly Sissy themed challenge entry and leaderboard score",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "weekKey": { "type": "string" },
+        "challengeId": { "type": "string" },
+        "challengeTitle": { "type": "string" },
+        "displayName": { "type": "string" },
+        "tasksCompleted": { "type": "integer" },
+        "restrictedMinutes": { "type": "integer" },
+        "dailyStreak": { "type": "integer" },
+        "totalScore": { "type": "integer" },
+        "badgeTitle": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "weekKey", "challengeId", "challengeTitle", "displayName",
+        "tasksCompleted", "restrictedMinutes", "dailyStreak", "totalScore", "badgeTitle",
+        "createdAt", "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profile, currencies, and personalization preferences"
+    },
+    "/users/{userId}/app_rules/{ruleId}": {
+      "schema": { "$ref": "#/entities/AppRule" },
+      "description": "App-specific restriction rules"
+    },
+    "/users/{userId}/schedules/{scheduleId}": {
+      "schema": { "$ref": "#/entities/SchedulePlan" },
+      "description": "Customizable schedule plans with per-schedule allowed and restricted apps"
+    },
+    "/users/{userId}/sessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/RestrictionSession" },
+      "description": "Restriction session history and active timer state"
+    },
+    "/users/{userId}/usage_logs/{logId}": {
+      "schema": { "$ref": "#/entities/UsageLogEntry" },
+      "description": "Screen time and restriction analytics entries"
+    },
+    "/users/{userId}/custom_tasks/{taskId}": {
+      "schema": { "$ref": "#/entities/CustomExitTask" },
+      "description": "Custom reading lines and typing challenges"
+    },
+    "/users/{userId}/ai_suggestions/{suggestionId}": {
+      "schema": { "$ref": "#/entities/AiScheduleSuggestion" },
+      "description": "AI-generated editable schedule recommendations"
+    },
+    "/challenge_leaderboard/{entryId}": {
+      "schema": { "$ref": "#/entities/ChallengeLeaderboardEntry" },
+      "description": "Global weekly Sissy themed challenge scores for leaderboard competition"
+    }
+  }
+}
