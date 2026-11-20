@@ -1,0 +1,161 @@
+name: Build Release APK
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-release-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Verify Java environment
+        run: |
+          set -euo pipefail
+          echo "JAVA_HOME=${JAVA_HOME:-}"
+          java -version
+
+          VERSION_LINE=$(java -version 2>&1 | head -n 1 || true)
+          if [[ "$VERSION_LINE" =~ \"([0-9]+)(\.[0-9]+)? ]]; then
+            RAW_MAJOR="${BASH_REMATCH[1]}"
+            if [[ "$RAW_MAJOR" == "1" ]]; then
+              if [[ "$VERSION_LINE" =~ \"1\.([0-9]+) ]]; then
+                MAJOR="${BASH_REMATCH[1]}"
+              else
+                echo "ERROR: Unable to detect Java major version from: $VERSION_LINE" >&2
+                exit 1
+              fi
+            else
+              MAJOR="$RAW_MAJOR"
+            fi
+          else
+            echo "ERROR: Unable to detect Java version from: $VERSION_LINE" >&2
+            exit 1
+          fi
+
+          echo "Detected Java major version: $MAJOR"
+          if (( MAJOR < 17 )); then
+            echo "ERROR: Java 17 or newer is required, but detected Java $MAJOR." >&2
+            exit 1
+          fi
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK 36.1 and accept licenses
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager --install "platforms;android-36.1" "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+
+      - name: Setup Gradle 9.3.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.3.1"
+
+      - name: Ensure Secrets plugin defaults file exists
+        run: |
+          set -euo pipefail
+          if [[ ! -f "./.env.example" ]]; then
+            touch ./.env.example
+          fi
+
+      - name: Prepare release upload keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${KEYSTORE_BASE64}" || -z "${STORE_PASSWORD}" || -z "${KEY_PASSWORD}" ]]; then
+            echo "ERROR: Missing release signing secrets (KEYSTORE_BASE64, STORE_PASSWORD, KEY_PASSWORD)." >&2
+            echo "Generate a keystore with alias 'upload' and add those 3 GitHub repository secrets." >&2
+            exit 1
+          fi
+          printf '%s' "${KEYSTORE_BASE64}" | tr -d '\n\r ' | base64 -d > ./my-upload-key.jks
+          if [[ ! -s "./my-upload-key.jks" ]]; then
+            echo "ERROR: Decoded ./my-upload-key.jks is empty." >&2
+            exit 1
+          fi
+
+      - name: Build release APK
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          gradle :app:assembleRelease --stacktrace --no-daemon
+
+      - name: Remove temporary release keystore
+        if: always()
+        run: rm -f ./my-upload-key.jks
+
+      - name: Verify release APK
+        run: |
+          set -euo pipefail
+          APK_PATH="app/build/outputs/apk/release/app-release.apk"
+
+          if [[ ! -e "$APK_PATH" ]]; then
+            echo "ERROR: Expected release APK missing at $APK_PATH" >&2
+            if [[ -d "app/build/outputs/apk" ]]; then
+              echo "Discovered APK files inside app/build/outputs/apk:" >&2
+              find app/build/outputs/apk -type f -name "*.apk" >&2 || true
+            fi
+            exit 1
+          fi
+
+          if [[ ! -f "$APK_PATH" || ! -s "$APK_PATH" ]]; then
+            echo "ERROR: $APK_PATH is missing, empty, or not a regular file." >&2
+            exit 1
+          fi
+
+          echo "Verified release APK: $APK_PATH ($(wc -c < "$APK_PATH") bytes)"
+
+      - name: Upload release APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+
+      - name: Publish release APK to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          APK_PATH="app/build/outputs/apk/release/app-release.apk"
+          SHORT_SHA="${GITHUB_SHA::7}"
+
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
+            TAG_NAME="${GITHUB_REF_NAME}"
+            RELEASE_TITLE="Release ${GITHUB_REF_NAME}"
+          else
+            TAG_NAME="release-${GITHUB_RUN_NUMBER}-${SHORT_SHA}"
+            RELEASE_TITLE="Release APK Build #${GITHUB_RUN_NUMBER} (${SHORT_SHA})"
+          fi
+
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release upload "$TAG_NAME" "$APK_PATH" --clobber
+          else
+            gh release create "$TAG_NAME" "$APK_PATH" \
+              --target "$GITHUB_SHA" \
+              --title "$RELEASE_TITLE" \
+              --notes "Signed release APK build from commit ${GITHUB_SHA}."
+          fi
